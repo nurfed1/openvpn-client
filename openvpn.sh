@@ -98,7 +98,7 @@ firewall() { local port="${1:-1194}" docker_network="$(ip -o addr show dev eth0|
     iptables -A FORWARD -d ${docker_network} -j ACCEPT
     iptables -A FORWARD -s ${docker_network} -j ACCEPT
     iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-    iptables -A OUTPUT -o lo -j ACCEPT
+    #iptables -A OUTPUT -o lo -j ACCEPT
     iptables -A OUTPUT -o tap+ -j ACCEPT
     iptables -A OUTPUT -o tun+ -j ACCEPT
     iptables -A OUTPUT -d ${docker_network} -j ACCEPT
@@ -110,14 +110,15 @@ firewall() { local port="${1:-1194}" docker_network="$(ip -o addr show dev eth0|
         done
         iptables -A OUTPUT -p udp -m udp --dport 53 -j ACCEPT; }
     if grep -Fq "127.0.0.11" /etc/resolv.conf; then
-        iptables -A OUTPUT -d 127.0.0.11 -m owner --gid-owner vpn -j ACCEPT \
-        2>/dev/null && {
+        iptables -A OUTPUT -o lo -m owner --gid-owner vpn -j ACCEPT 2>/dev/null && \
+        iptables -A OUTPUT -o lo -m owner --gid-owner root -j ACCEPT && \
+        {
             iptables -A OUTPUT -p udp -m udp --dport 53 -j ACCEPT
             ext_args+=" --route-up '/bin/sh -c \""
-            ext_args+=" iptables -A OUTPUT -d 127.0.0.11 -j ACCEPT\"'"
+            ext_args+=" iptables -A OUTPUT -o lo -j ACCEPT\"'"
             ext_args+=" --route-pre-down '/bin/sh -c \""
-            ext_args+=" iptables -D OUTPUT -d 127.0.0.11 -j ACCEPT\"'"
-        } || iptables -A OUTPUT -d 127.0.0.11 -j ACCEPT; fi
+            ext_args+=" iptables -D OUTPUT -o lo -j ACCEPT\"'"
+        } || iptables -A OUTPUT -o lo -j ACCEPT; fi
     iptables -t nat -A POSTROUTING -o tap+ -j MASQUERADE
     iptables -t nat -A POSTROUTING -o tun+ -j MASQUERADE
     [[ -r $firewall_cust ]] && . $firewall_cust
